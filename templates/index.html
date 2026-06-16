@@ -20,6 +20,12 @@
     <a href="/api/report" class="nav-link" target="_blank">JSON API</a>
   </div>
   <div class="nav-upload">
+    {{if .TraceDir}}
+    <span class="meta-tag" title="{{.TraceDir}}">📂 {{.TraceDir}}</span>
+    <form method="POST" action="/api/rescan" style="display:inline">
+      <button type="submit" class="upload-btn" style="border:none">🔄 Re-scan</button>
+    </form>
+    {{end}}
     <form method="POST" action="/api/upload" enctype="multipart/form-data" class="upload-form">
       <label class="upload-btn">
         <span>⬆ Upload File</span>

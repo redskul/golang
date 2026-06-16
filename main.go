@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,7 +10,10 @@ import (
 )
 
 func main() {
-	srv, err := web.NewServer()
+	traceDir := flag.String("dir", "", "Path to HANA trace directory to scan (e.g. /usr/sap/HDB/HDB00/trace). If empty, runs in demo mode with sample data.")
+	flag.Parse()
+
+	srv, err := web.NewServer(*traceDir)
 	if err != nil {
 		log.Fatalf("failed to init server: %v", err)
 	}

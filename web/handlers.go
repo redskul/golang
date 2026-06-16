@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"hana-viewer/parser"
@@ -15,21 +16,58 @@ import (
 
 // Server holds all HTTP handler state
 type Server struct {
-	tmpl   *template.Template
-	report *parser.DiagnosticReport
+	tmpl     *template.Template
+	mu       sync.RWMutex
+	report   *parser.DiagnosticReport
+	traceDir string // real HANA trace directory; empty means demo mode
+	lastScan time.Time
+	scanErr  error
 }
 
-// NewServer creates a new web server with embedded templates
-func NewServer() (*Server, error) {
+// NewServer creates a new web server with embedded templates.
+// If traceDir is non-empty, it is scanned immediately for real HANA crash
+// dumps, OOM events, and log files. If traceDir is empty, the server starts
+// in demo mode with synthetic sample data.
+func NewServer(traceDir string) (*Server, error) {
 	tmpl, err := template.New("").Funcs(templateFuncs()).ParseGlob("templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
 	s := &Server{
-		tmpl:   tmpl,
-		report: parser.GenerateSampleData(),
+		tmpl:     tmpl,
+		traceDir: traceDir,
+	}
+	if traceDir == "" {
+		s.report = parser.GenerateSampleData()
+	} else if err := s.rescan(); err != nil {
+		return nil, fmt.Errorf("initial scan of %s: %w", traceDir, err)
 	}
 	return s, nil
+}
+
+// rescan re-walks the configured trace directory and rebuilds the report
+// from real on-disk files. No-op (returns nil) in demo mode.
+func (s *Server) rescan() error {
+	if s.traceDir == "" {
+		return nil
+	}
+	report, err := parser.ScanTraceDir(s.traceDir)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastScan = time.Now()
+	if err != nil {
+		s.scanErr = err
+		return err
+	}
+	s.scanErr = nil
+	s.report = report
+	return nil
+}
+
+func (s *Server) currentReport() *parser.DiagnosticReport {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.report
 }
 
 func (s *Server) RegisterRoutes(mux *http.ServeMux) {
@@ -39,6 +77,7 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/crash/", s.handleCrashDetail)
 	mux.HandleFunc("/oom/", s.handleOOMDetail)
 	mux.HandleFunc("/logs", s.handleLogs)
+	mux.HandleFunc("/api/rescan", s.handleRescan)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 }
 
@@ -49,9 +88,11 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := map[string]interface{}{
-		"Report":      s.report,
+		"Report":      s.currentReport(),
 		"PageTitle":   "SAP HANA Diagnostic Viewer",
 		"CurrentPage": "dashboard",
+		"TraceDir":    s.traceDir,
+		"ScanErr":     s.scanErr,
 	}
 	if err := s.tmpl.ExecuteTemplate(w, "index.html", data); err != nil {
 		http.Error(w, err.Error(), 500)
@@ -60,13 +101,14 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 // handleCrashDetail shows a single crash dump in detail
 func (s *Server) handleCrashDetail(w http.ResponseWriter, r *http.Request) {
+	report := s.currentReport()
 	idx := parseIDFromPath(r.URL.Path, "/crash/")
-	if idx < 0 || idx >= len(s.report.CrashDumps) {
+	if idx < 0 || idx >= len(report.CrashDumps) {
 		http.NotFound(w, r)
 		return
 	}
 	data := map[string]interface{}{
-		"Crash":       s.report.CrashDumps[idx],
+		"Crash":       report.CrashDumps[idx],
 		"Index":       idx,
 		"PageTitle":   "Crash Dump Analysis",
 		"CurrentPage": "crash",
@@ -78,13 +120,14 @@ func (s *Server) handleCrashDetail(w http.ResponseWriter, r *http.Request) {
 
 // handleOOMDetail shows a single OOM event in detail
 func (s *Server) handleOOMDetail(w http.ResponseWriter, r *http.Request) {
+	report := s.currentReport()
 	idx := parseIDFromPath(r.URL.Path, "/oom/")
-	if idx < 0 || idx >= len(s.report.OOMEvents) {
+	if idx < 0 || idx >= len(report.OOMEvents) {
 		http.NotFound(w, r)
 		return
 	}
 	data := map[string]interface{}{
-		"OOM":         s.report.OOMEvents[idx],
+		"OOM":         report.OOMEvents[idx],
 		"Index":       idx,
 		"PageTitle":   "OOM Event Analysis",
 		"CurrentPage": "oom",
@@ -99,8 +142,9 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 	severity := r.URL.Query().Get("severity")
 	search := r.URL.Query().Get("q")
 
+	report := s.currentReport()
 	var entries []parser.LogEntry
-	for _, lf := range s.report.LogFiles {
+	for _, lf := range report.LogFiles {
 		for _, e := range lf.Entries {
 			if severity != "" && !strings.EqualFold(string(e.Severity), severity) {
 				continue
@@ -113,7 +157,7 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"LogFiles":    s.report.LogFiles,
+		"LogFiles":    report.LogFiles,
 		"Entries":     entries,
 		"Severity":    severity,
 		"Search":      search,
@@ -128,7 +172,17 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 // handleAPIReport returns the full diagnostic report as JSON
 func (s *Server) handleAPIReport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(s.report)
+	_ = json.NewEncoder(w).Encode(s.currentReport())
+}
+
+// handleRescan re-walks the configured trace directory and redirects back
+// to the dashboard. No-op in demo mode.
+func (s *Server) handleRescan(w http.ResponseWriter, r *http.Request) {
+	if err := s.rescan(); err != nil {
+		http.Error(w, "rescan failed: "+err.Error(), 500)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // handleUpload accepts file uploads for parsing
@@ -157,6 +211,9 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	switch {
 	case strings.Contains(strings.ToLower(name), "oom") || strings.Contains(strings.ToLower(name), "out_of_memory"):
 		ev, err := parser.ParseOOMEvent(strings.NewReader(string(body)), name)
@@ -182,6 +239,8 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 		s.report.LogFiles = append(s.report.LogFiles, *lf)
 	}
+	s.report.TopIssues = parser.DeriveIssues(s.report)
+	s.report.HealthScore = parser.ComputeHealthScore(s.report)
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Crash Dump — {{ crash.service_name }}{% endblock %}
+{% block content %}
+
+<div class="crash-hero">
+  <div class="crash-hero-left">
+    <div class="crash-signal-big">SIG{{ crash.signal }}</div>
+    <div class="crash-signal-desc">Signal {{ crash.signal_num }}</div>
+  </div>
+  <div class="crash-hero-info">
+    <h1 class="crash-hero-title">Crash Dump Analysis</h1>
+    <div class="crash-hero-meta">
+      <span class="meta-tag">🔧 {{ crash.service_name }}</span>
+      <span class="meta-tag">🆔 PID {{ crash.process_id }}</span>
+      <span class="meta-tag">🖥 {{ crash.host }}</span>
+      <span class="meta-tag">🗃 SID: {{ crash.sid }}</span>
+      <span class="meta-tag">🕐 {{ crash.timestamp | fmt_time }}</span>
+    </div>
+    <div class="crash-summary-box">{{ crash.summary }}</div>
+  </div>
+</div>
+
+<div class="analysis-grid">
+  <div class="analysis-block root-cause-block">
+    <div class="block-header"><span class="block-icon">🎯</span><span>Root Cause Analysis</span></div>
+    <div class="root-cause-text">{{ crash.root_cause }}</div>
+    <div class="cause-detail">
+      <div class="cause-row"><span class="cause-key">Signal</span><span class="cause-val signal-pill">{{ crash.signal }} ({{ crash.signal_num }})</span></div>
+      <div class="cause-row"><span class="cause-key">Crash Reason</span><span class="cause-val">{{ crash.crash_reason }}</span></div>
+      <div class="cause-row"><span class="cause-key">Source File</span><span class="cause-val">{{ crash.source_file }}</span></div>
+    </div>
+  </div>
+  <div class="analysis-block">
+    <div class="block-header"><span class="block-icon">📚</span><span>Stack Frames Found</span></div>
+    <div class="thread-list">
+      <div class="thread-row"><span class="thread-name">Total frames parsed</span><span class="thread-state state-RUNNING">{{ crash.stack_trace|length }}</span></div>
+      <div class="thread-row"><span class="thread-name">HANA-source frames</span><span class="thread-state state-WAITING">{{ crash.stack_trace | selectattr('is_hana_code') | list | length }}</span></div>
+    </div>
+  </div>
+</div>
+
+<section class="section">
+  <h2 class="section-title">📚 Call Stack at Crash</h2>
+  <div class="stack-hint">Frames highlighted in <span class="hana-hint">blue</span> are HANA source code. The crash occurred at frame #0.</div>
+  <div class="stack-trace-container">
+    {% for f in crash.stack_trace %}
+    <div class="stack-frame {% if f.is_hana_code %}frame-is-hana{% endif %} {% if f.frame_num == 0 %}frame-crash{% endif %}">
+      <div class="frame-header">
+        <span class="frame-number">#{{ f.frame_num }}</span>
+        {% if f.frame_num == 0 %}<span class="frame-crash-arrow">← CRASH HERE</span>{% endif %}
+        <span class="frame-addr">{{ f.address }}</span>
+        {% if f.is_hana_code %}<span class="frame-hana-tag">HANA</span>{% endif %}
+      </div>
+      <div class="frame-function">{{ f.function }}</div>
+      {% if f.description %}<div class="frame-desc">💡 {{ f.description }}</div>{% endif %}
+      {% if f.file %}<div class="frame-location">📁 {{ f.file }}{% if f.line %}:{{ f.line }}{% endif %}</div>{% endif %}
+    </div>
+    {% endfor %}
+    {% if crash.stack_trace|length == 0 %}
+    <div class="empty-state">No stack frames could be parsed from this crash dump. Review the raw file: {{ crash.source_file }}</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <h2 class="section-title">🛠 Recommended Actions</h2>
+  <div class="action-list">
+    <div class="action-item"><span class="action-num">1</span><div>
+      <div class="action-title">Collect Diagnostic Files</div>
+      <div class="action-desc">Source file: <code>{{ crash.source_file }}</code></div>
+    </div></div>
+    <div class="action-item"><span class="action-num">2</span><div>
+      <div class="action-title">Check SAP Notes</div>
+      <div class="action-desc">Search for SAP Notes about <b>{{ crash.signal }}</b> in <b>{{ crash.service_name }}</b>.</div>
+    </div></div>
+    <div class="action-item"><span class="action-num">3</span><div>
+      <div class="action-title">Open SAP Support Message</div>
+      <div class="action-desc">If recurrent, open a P1/P2 incident with the crash dump attached.</div>
+    </div></div>
+  </div>
+</section>
+
+<a href="/" class="btn-detail">← Back to Dashboard</a>
+{% endblock %}
