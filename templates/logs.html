@@ -1,143 +1,65 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Log Viewer — HANA Diagnostic</title>
-<link rel="stylesheet" href="/static/css/main.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-</head>
-<body>
-<nav class="navbar">
-  <div class="nav-brand">
-    <span class="brand-icon">⬡</span>
-    <span class="brand-text">HANA Diagnostic Viewer</span>
+{% extends "base.html" %}
+{% block title %}Log Viewer — HANA Diagnostic{% endblock %}
+{% block content %}
+<h1 class="page-title">📋 HANA Log Viewer</h1>
+
+<form method="GET" action="/logs" class="filter-bar">
+  <div class="filter-group">
+    <label class="filter-label">Search</label>
+    <input type="text" name="q" value="{{ search }}" placeholder="Filter by message..." class="filter-input">
   </div>
-  <div class="nav-links">
-    <a href="/" class="nav-link">← Dashboard</a>
-    <a href="/logs" class="nav-link active">Log Viewer</a>
+  <div class="filter-group">
+    <label class="filter-label">Severity</label>
+    <select name="severity" class="filter-select">
+      <option value="">All</option>
+      {% for s in ['FATAL','ERROR','WARNING','INFO','DEBUG'] %}
+      <option value="{{ s }}" {% if severity==s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
   </div>
-</nav>
+  <button type="submit" class="filter-btn">Apply Filter</button>
+  <a href="/logs" class="filter-clear">✕ Clear</a>
+</form>
 
-<main class="main-content">
-  <h1 class="page-title">📋 HANA Log Viewer</h1>
-
-  <!-- Filter Bar -->
-  <form method="GET" action="/logs" class="filter-bar">
-    <div class="filter-group">
-      <label class="filter-label">Search</label>
-      <input type="text" name="q" value="{{.Search}}" placeholder="Filter by message..." class="filter-input">
+{% for lf in log_files %}
+<div class="log-file-card">
+  <div class="log-file-header">
+    <span class="log-file-icon">📄</span>
+    <div class="log-file-info">
+      <div class="log-file-name">{{ lf.filename }}</div>
+      <div class="log-file-meta">Host: <b>{{ lf.host }}</b> | {{ lf.source_file }}</div>
     </div>
-    <div class="filter-group">
-      <label class="filter-label">Severity</label>
-      <select name="severity" class="filter-select">
-        <option value="">All</option>
-        <option value="FATAL"   {{if eq .Severity "FATAL"}}selected{{end}}>💀 Fatal</option>
-        <option value="ERROR"   {{if eq .Severity "ERROR"}}selected{{end}}>🔴 Error</option>
-        <option value="WARNING" {{if eq .Severity "WARNING"}}selected{{end}}>🟡 Warning</option>
-        <option value="INFO"    {{if eq .Severity "INFO"}}selected{{end}}>🔵 Info</option>
-        <option value="DEBUG"   {{if eq .Severity "DEBUG"}}selected{{end}}>⚪ Debug</option>
-      </select>
+    <div class="log-file-stats">
+      <span class="lstat lstat-err">{{ lf.error_count }} Errors</span>
+      <span class="lstat lstat-warn">{{ lf.warn_count }} Warnings</span>
+      <span class="lstat lstat-total">{{ lf.entries|length }} Total</span>
     </div>
-    <button type="submit" class="filter-btn">Apply Filter</button>
-    <a href="/logs" class="filter-clear">✕ Clear</a>
-  </form>
-
-  <!-- Log File Summary Cards -->
-  {{range .LogFiles}}
-  <div class="log-file-card">
-    <div class="log-file-header">
-      <span class="log-file-icon">📄</span>
-      <div class="log-file-info">
-        <div class="log-file-name">{{.Filename}}</div>
-        <div class="log-file-meta">Service: <b>{{.ServiceName}}</b> | Host: <b>{{.Host}}</b></div>
-      </div>
-      <div class="log-file-stats">
-        <span class="lstat lstat-err">{{.ErrorCount}} Errors</span>
-        <span class="lstat lstat-warn">{{.WarnCount}} Warnings</span>
-        <span class="lstat lstat-total">{{len .Entries}} Total</span>
-      </div>
-    </div>
-    <!-- Timeline mini-chart per file -->
-    <div class="chart-box" style="height:120px; margin-top:.5rem">
-      <canvas id="tl_{{.Filename}}" height="120"></canvas>
-    </div>
-    <script>
-    (function(){
-      var tl = {{toJSON .Timeline}};
-      var labels = tl.map(function(b){ return b.time.substr(11,5); });
-      var errors  = tl.map(function(b){ return b.errors; });
-      var warns   = tl.map(function(b){ return b.warnings; });
-      var infos   = tl.map(function(b){ return b.infos; });
-      new Chart(document.getElementById('tl_{{.Filename}}'), {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: 'Error/Fatal', data: errors, backgroundColor: '#ef4444', stack: 's' },
-            { label: 'Warning',     data: warns,  backgroundColor: '#f59e0b', stack: 's' },
-            { label: 'Info',        data: infos,  backgroundColor: '#3b82f6', stack: 's' },
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { stacked: true, ticks: { color: '#64748b', font: {size:10} }, grid: { color: '#1e293b' } },
-            y: { stacked: true, ticks: { color: '#64748b', font: {size:10} }, grid: { color: '#1e293b' } }
-          }
-        }
-      });
-    })();
-    </script>
   </div>
-  {{end}}
+</div>
+{% endfor %}
 
-  <!-- Log Entries Table -->
-  <section class="section">
-    <div class="log-table-header">
-      <h2 class="section-title" style="margin:0">Log Entries ({{len .Entries}} shown)</h2>
-      {{if or .Search .Severity}}<span class="filter-active-badge">Filtered</span>{{end}}
-    </div>
-    <div class="log-table-wrap">
-      <table class="log-table">
-        <thead>
-          <tr>
-            <th class="col-time">Time</th>
-            <th class="col-sev">Severity</th>
-            <th class="col-comp">Component</th>
-            <th class="col-msg">Message &amp; Explanation</th>
-          </tr>
-        </thead>
-        <tbody>
-          {{range .Entries}}
-          <tr class="log-row sev-row-{{.Severity}} {{if .IsError}}row-error{{end}}">
-            <td class="col-time"><span class="log-time">{{formatTime .Timestamp}}</span><br><span class="log-line">L{{.LineNum}}</span></td>
-            <td class="col-sev">
-              <span class="sev-pill sev-{{.Severity}}">{{severityIcon .Severity}} {{.Severity}}</span>
-            </td>
-            <td class="col-comp"><span class="comp-tag">{{.Component}}</span>{{if .Thread}}<br><span class="thread-tag">{{.Thread}}</span>{{end}}</td>
-            <td class="col-msg">
-              <div class="log-message">{{.Message}}</div>
-              {{if .Explanation}}
-              <div class="log-explanation">
-                <span class="exp-icon">💡</span>
-                <span class="exp-text">{{.Explanation}}</span>
-              </div>
-              {{end}}
-              {{if .ErrorCode}}<span class="error-code-badge">ERR {{.ErrorCode}}</span>{{end}}
-            </td>
-          </tr>
-          {{end}}
-          {{if eq (len .Entries) 0}}
-          <tr><td colspan="4" class="empty-state">No log entries match the current filter.</td></tr>
-          {{end}}
-        </tbody>
-      </table>
-    </div>
-  </section>
-</main>
-
-<footer class="footer">SAP HANA Diagnostic Viewer — Log Viewer</footer>
-</body>
-</html>
+<section class="section">
+  <h2 class="section-title">Log Entries ({{ entries|length }} shown)</h2>
+  <div class="log-table-wrap">
+    <table class="log-table">
+      <thead><tr><th>Time</th><th>Severity</th><th>Component</th><th>Message &amp; Explanation</th></tr></thead>
+      <tbody>
+        {% for e in entries %}
+        <tr class="log-row {% if e.is_error %}row-error{% endif %}">
+          <td class="col-time"><span class="log-time">{{ e.timestamp | fmt_time }}</span><br><span class="log-line">L{{ e.line_num }}</span></td>
+          <td class="col-sev"><span class="sev-pill sev-{{ e.severity }}">{{ e.severity }}</span></td>
+          <td class="col-comp"><span class="comp-tag">{{ e.component }}</span></td>
+          <td class="col-msg">
+            <div class="log-message">{{ e.message }}</div>
+            {% if e.explanation %}<div class="log-explanation"><span class="exp-icon">💡</span><span class="exp-text">{{ e.explanation }}</span></div>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if entries|length == 0 %}
+        <tr><td colspan="4" class="empty-state">No log entries match the current filter.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

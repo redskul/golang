@@ -1,181 +1,84 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Crash Dump — {{.Crash.ServiceName}}</title>
-<link rel="stylesheet" href="/static/css/main.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-</head>
-<body>
-<nav class="navbar">
-  <div class="nav-brand">
-    <span class="brand-icon">⬡</span>
-    <span class="brand-text">HANA Diagnostic Viewer</span>
-  </div>
-  <div class="nav-links">
-    <a href="/" class="nav-link">← Dashboard</a>
-    <a href="/logs" class="nav-link">Log Viewer</a>
-  </div>
-</nav>
+{% extends "base.html" %}
+{% block title %}Crash Dump — {{ crash.service_name }}{% endblock %}
+{% block content %}
 
-<main class="main-content">
-
-  <!-- Crash Hero -->
-  <div class="crash-hero">
-    <div class="crash-hero-left">
-      <div class="crash-signal-big">SIG{{.Crash.Signal}}</div>
-      <div class="crash-signal-desc">Signal {{.Crash.SignalNum}}</div>
+<div class="crash-hero">
+  <div class="crash-hero-left">
+    <div class="crash-signal-big">SIG{{ crash.signal }}</div>
+    <div class="crash-signal-desc">Signal {{ crash.signal_num }}</div>
+  </div>
+  <div class="crash-hero-info">
+    <h1 class="crash-hero-title">Crash Dump Analysis</h1>
+    <div class="crash-hero-meta">
+      <span class="meta-tag">🔧 {{ crash.service_name }}</span>
+      <span class="meta-tag">🆔 PID {{ crash.process_id }}</span>
+      <span class="meta-tag">🖥 {{ crash.host }}</span>
+      <span class="meta-tag">🗃 SID: {{ crash.sid }}</span>
+      <span class="meta-tag">🕐 {{ crash.timestamp | fmt_time }}</span>
     </div>
-    <div class="crash-hero-info">
-      <h1 class="crash-hero-title">Crash Dump Analysis</h1>
-      <div class="crash-hero-meta">
-        <span class="meta-tag">🔧 {{.Crash.ServiceName}}</span>
-        <span class="meta-tag">🆔 PID {{.Crash.ProcessID}}</span>
-        <span class="meta-tag">🖥 {{.Crash.Host}}</span>
-        <span class="meta-tag">🗃 SID: {{.Crash.SID}}</span>
-        <span class="meta-tag">🕐 {{formatTime .Crash.Timestamp}}</span>
-      </div>
-      <div class="crash-summary-box">{{.Crash.Summary}}</div>
+    <div class="crash-summary-box">{{ crash.summary }}</div>
+  </div>
+</div>
+
+<div class="analysis-grid">
+  <div class="analysis-block root-cause-block">
+    <div class="block-header"><span class="block-icon">🎯</span><span>Root Cause Analysis</span></div>
+    <div class="root-cause-text">{{ crash.root_cause }}</div>
+    <div class="cause-detail">
+      <div class="cause-row"><span class="cause-key">Signal</span><span class="cause-val signal-pill">{{ crash.signal }} ({{ crash.signal_num }})</span></div>
+      <div class="cause-row"><span class="cause-key">Crash Reason</span><span class="cause-val">{{ crash.crash_reason }}</span></div>
+      <div class="cause-row"><span class="cause-key">Source File</span><span class="cause-val">{{ crash.source_file }}</span></div>
     </div>
   </div>
-
-  <!-- Root Cause Analysis -->
-  <div class="analysis-grid">
-    <div class="analysis-block root-cause-block">
-      <div class="block-header">
-        <span class="block-icon">🎯</span>
-        <span>Root Cause Analysis</span>
-      </div>
-      <div class="root-cause-text">{{.Crash.RootCause}}</div>
-      <div class="cause-detail">
-        <div class="cause-row"><span class="cause-key">Signal</span><span class="cause-val signal-pill">{{.Crash.Signal}} ({{.Crash.SignalNum}})</span></div>
-        <div class="cause-row"><span class="cause-key">Crash Reason</span><span class="cause-val">{{.Crash.CrashReason}}</span></div>
-        <div class="cause-row"><span class="cause-key">Process</span><span class="cause-val">{{.Crash.ServiceName}} PID {{.Crash.ProcessID}}</span></div>
-        <div class="cause-row"><span class="cause-key">Time</span><span class="cause-val">{{formatTime .Crash.Timestamp}}</span></div>
-      </div>
-    </div>
-
-    <!-- Thread Summary -->
-    <div class="analysis-block">
-      <div class="block-header"><span class="block-icon">🧵</span><span>Threads at Crash ({{len .Crash.Threads}})</span></div>
-      <div class="thread-list">
-        {{range .Crash.Threads}}
-        <div class="thread-row {{if .IsCrash}}thread-crashed{{end}}">
-          <span class="thread-id">T{{.ThreadID}}</span>
-          <span class="thread-name">{{if .Name}}{{.Name}}{{else}}Thread-{{.ThreadID}}{{end}}</span>
-          <span class="thread-state state-{{.State}}">{{.State}}</span>
-          {{if .IsCrash}}<span class="crash-marker">💀 CRASHED</span>{{end}}
-        </div>
-        {{end}}
-      </div>
+  <div class="analysis-block">
+    <div class="block-header"><span class="block-icon">📚</span><span>Stack Frames Found</span></div>
+    <div class="thread-list">
+      <div class="thread-row"><span class="thread-name">Total frames parsed</span><span class="thread-state state-RUNNING">{{ crash.stack_trace|length }}</span></div>
+      <div class="thread-row"><span class="thread-name">HANA-source frames</span><span class="thread-state state-WAITING">{{ crash.stack_trace | selectattr('is_hana_code') | list | length }}</span></div>
     </div>
   </div>
+</div>
 
-  <!-- Stack Trace -->
-  <section class="section">
-    <h2 class="section-title">📚 Call Stack at Crash</h2>
-    <div class="stack-hint">Frames highlighted in <span class="hana-hint">blue</span> are HANA source code. The crash occurred at frame #0.</div>
-    <div class="stack-trace-container">
-      {{range .Crash.StackTrace}}
-      <div class="stack-frame {{if .IsHANACode}}frame-is-hana{{end}} {{if eq .FrameNum 0}}frame-crash{{end}}">
-        <div class="frame-header">
-          <span class="frame-number">#{{.FrameNum}}</span>
-          {{if eq .FrameNum 0}}<span class="frame-crash-arrow">← CRASH HERE</span>{{end}}
-          <span class="frame-addr">{{.Address}}</span>
-          {{if .IsHANACode}}<span class="frame-hana-tag">HANA</span>{{end}}
-        </div>
-        <div class="frame-function">{{.Function}}</div>
-        {{if .Description}}<div class="frame-desc">💡 {{.Description}}</div>{{end}}
-        {{if .File}}<div class="frame-location">📁 {{.File}}{{if .Line}}:{{.Line}}{{end}}</div>{{end}}
-        {{if .Library}}<div class="frame-location">📦 {{.Library}}</div>{{end}}
+<section class="section">
+  <h2 class="section-title">📚 Call Stack at Crash</h2>
+  <div class="stack-hint">Frames highlighted in <span class="hana-hint">blue</span> are HANA source code. The crash occurred at frame #0.</div>
+  <div class="stack-trace-container">
+    {% for f in crash.stack_trace %}
+    <div class="stack-frame {% if f.is_hana_code %}frame-is-hana{% endif %} {% if f.frame_num == 0 %}frame-crash{% endif %}">
+      <div class="frame-header">
+        <span class="frame-number">#{{ f.frame_num }}</span>
+        {% if f.frame_num == 0 %}<span class="frame-crash-arrow">← CRASH HERE</span>{% endif %}
+        <span class="frame-addr">{{ f.address }}</span>
+        {% if f.is_hana_code %}<span class="frame-hana-tag">HANA</span>{% endif %}
       </div>
-      {{end}}
+      <div class="frame-function">{{ f.function }}</div>
+      {% if f.description %}<div class="frame-desc">💡 {{ f.description }}</div>{% endif %}
+      {% if f.file %}<div class="frame-location">📁 {{ f.file }}{% if f.line %}:{{ f.line }}{% endif %}</div>{% endif %}
     </div>
-  </section>
+    {% endfor %}
+    {% if crash.stack_trace|length == 0 %}
+    <div class="empty-state">No stack frames could be parsed from this crash dump. Review the raw file: {{ crash.source_file }}</div>
+    {% endif %}
+  </div>
+</section>
 
-  <!-- Registers -->
-  {{if .Crash.Registers}}
-  <section class="section">
-    <h2 class="section-title">🔢 CPU Registers</h2>
-    <div class="register-grid">
-      {{range $k, $v := .Crash.Registers}}
-      <div class="register-row">
-        <span class="reg-name">{{$k}}</span>
-        <span class="reg-val">{{$v}}</span>
-        {{if eq $k "RAX"}}{{if eq $v "0x0000000000000000"}}<span class="reg-hint">⚠ NULL — possible null pointer dereference</span>{{end}}{{end}}
-        {{if eq $k "RIP"}}<span class="reg-hint">Instruction pointer (crash address)</span>{{end}}
-      </div>
-      {{end}}
-    </div>
-  </section>
-  {{end}}
+<section class="section">
+  <h2 class="section-title">🛠 Recommended Actions</h2>
+  <div class="action-list">
+    <div class="action-item"><span class="action-num">1</span><div>
+      <div class="action-title">Collect Diagnostic Files</div>
+      <div class="action-desc">Source file: <code>{{ crash.source_file }}</code></div>
+    </div></div>
+    <div class="action-item"><span class="action-num">2</span><div>
+      <div class="action-title">Check SAP Notes</div>
+      <div class="action-desc">Search for SAP Notes about <b>{{ crash.signal }}</b> in <b>{{ crash.service_name }}</b>.</div>
+    </div></div>
+    <div class="action-item"><span class="action-num">3</span><div>
+      <div class="action-title">Open SAP Support Message</div>
+      <div class="action-desc">If recurrent, open a P1/P2 incident with the crash dump attached.</div>
+    </div></div>
+  </div>
+</section>
 
-  <!-- Signal Chart -->
-  <section class="section">
-    <h2 class="section-title">📊 Signal Distribution Across All Crashes</h2>
-    <div class="chart-box" style="max-width:400px">
-      <canvas id="signalChart"></canvas>
-    </div>
-  </section>
-
-  <!-- What to do next -->
-  <section class="section">
-    <h2 class="section-title">🛠 Recommended Actions</h2>
-    <div class="action-list">
-      <div class="action-item">
-        <span class="action-num">1</span>
-        <div>
-          <div class="action-title">Collect Diagnostic Files</div>
-          <div class="action-desc">Gather crash dump, trace files, and HDB console output from <code>/hana/shared/{{.Crash.SID}}/HDB/trace/</code></div>
-        </div>
-      </div>
-      <div class="action-item">
-        <span class="action-num">2</span>
-        <div>
-          <div class="action-title">Check SAP Notes</div>
-          <div class="action-desc">Search SAP Launchpad for SAP Notes related to <b>{{.Crash.Signal}}</b> in <b>{{.Crash.ServiceName}}</b>. Signal {{.Crash.SignalNum}} crashes may have known patches.</div>
-        </div>
-      </div>
-      <div class="action-item">
-        <span class="action-num">3</span>
-        <div>
-          <div class="action-title">Analyze with HANA Studio / Cockpit</div>
-          <div class="action-desc">Use the Administration console to check service status, alert history, and system replication health.</div>
-        </div>
-      </div>
-      <div class="action-item">
-        <span class="action-num">4</span>
-        <div>
-          <div class="action-title">Open SAP Support Message</div>
-          <div class="action-desc">If crash is recurrent, open a P1/P2 incident and attach the crash dump, trace files, and this analysis report.</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-</main>
-
-<script>
-new Chart(document.getElementById('signalChart'), {
-  type: 'doughnut',
-  data: {
-    labels: ['SIGSEGV (11)', 'SIGABRT (6)', 'SIGKILL (9)', 'Other'],
-    datasets: [{
-      data: [1, 1, 0, 0],
-      backgroundColor: ['#ef4444','#f97316','#8b5cf6','#64748b'],
-      borderColor: '#0f172a',
-      borderWidth: 2
-    }]
-  },
-  options: {
-    plugins: {
-      legend: { labels: { color: '#94a3b8' } }
-    }
-  }
-});
-</script>
-
-<footer class="footer">SAP HANA Diagnostic Viewer — Crash Dump #{{inc .Index}} of analysis session</footer>
-</body>
-</html>
+<a href="/" class="btn-detail">← Back to Dashboard</a>
+{% endblock %}

@@ -1,258 +1,147 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{.PageTitle}}</title>
-<link rel="stylesheet" href="/static/css/main.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-</head>
-<body>
-<nav class="navbar">
-  <div class="nav-brand">
-    <span class="brand-icon">⬡</span>
-    <span class="brand-text">HANA Diagnostic Viewer</span>
-    <span class="brand-sub">SAP HANA Crash · OOM · Log Analysis</span>
-  </div>
-  <div class="nav-links">
-    <a href="/" class="nav-link {{if eq .CurrentPage "dashboard"}}active{{end}}">Dashboard</a>
-    <a href="/logs" class="nav-link {{if eq .CurrentPage "logs"}}active{{end}}">Log Viewer</a>
-    <a href="/api/report" class="nav-link" target="_blank">JSON API</a>
-  </div>
-  <div class="nav-upload">
-    {{if .TraceDir}}
-    <span class="meta-tag" title="{{.TraceDir}}">📂 {{.TraceDir}}</span>
-    <form method="POST" action="/api/rescan" style="display:inline">
-      <button type="submit" class="upload-btn" style="border:none">🔄 Re-scan</button>
-    </form>
-    {{end}}
-    <form method="POST" action="/api/upload" enctype="multipart/form-data" class="upload-form">
-      <label class="upload-btn">
-        <span>⬆ Upload File</span>
-        <input type="file" name="file" onchange="this.form.submit()" hidden accept=".trc,.log,.txt,.dmp">
-      </label>
-    </form>
-  </div>
-</nav>
+{% extends "base.html" %}
+{% block title %}Dashboard — HANA Diagnostic Viewer{% endblock %}
+{% block content %}
 
-<main class="main-content">
-  <!-- System Header -->
-  <div class="system-header">
-    <div class="system-info">
-      <div class="sys-field"><span class="sys-label">Host</span><span class="sys-val">{{.Report.Host}}</span></div>
-      <div class="sys-field"><span class="sys-label">SID</span><span class="sys-val">{{.Report.SID}}</span></div>
-      <div class="sys-field"><span class="sys-label">Generated</span><span class="sys-val">{{formatTime .Report.GeneratedAt}}</span></div>
-    </div>
-    <div class="health-score-container">
-      <canvas id="healthGauge" width="120" height="80"></canvas>
-      <div class="health-label" style="color:{{healthColor .Report.HealthScore}}">
-        <div class="health-num">{{.Report.HealthScore}}</div>
-        <div class="health-text">{{healthLabel .Report.HealthScore}}</div>
-      </div>
+<form method="POST" action="/api/rescan" class="filter-bar" style="margin-bottom:1rem">
+  <div class="filter-group" style="flex:1">
+    <label class="filter-label">File or directory to analyze</label>
+    <input type="text" name="path" value="{{ report.trace_dir }}" placeholder="/usr/sap/HDB/HDB00/trace or a single .trc file" class="filter-input" style="width:100%;min-width:0">
+  </div>
+  <button type="submit" class="filter-btn">🔍 Analyze</button>
+</form>
+
+<div class="system-header">
+  <div class="system-info">
+    <div class="sys-field"><span class="sys-label">Host</span><span class="sys-val">{{ report.host }}</span></div>
+    <div class="sys-field"><span class="sys-label">SID</span><span class="sys-val">{{ report.sid }}</span></div>
+    <div class="sys-field"><span class="sys-label">Generated</span><span class="sys-val">{{ report.generated_at | fmt_time }}</span></div>
+    {% if report.trace_dir %}<div class="sys-field"><span class="sys-label">Analyzing</span><span class="sys-val">{{ report.trace_dir }}</span></div>{% endif %}
+  </div>
+  <div class="health-score-container">
+    <canvas id="healthGauge" width="120" height="80"></canvas>
+    {% set hc = '#22c55e' if report.health_score >= 80 else ('#f59e0b' if report.health_score >= 60 else ('#f97316' if report.health_score >= 40 else '#ef4444')) %}
+    {% set hl = 'HEALTHY' if report.health_score >= 80 else ('DEGRADED' if report.health_score >= 60 else ('CRITICAL' if report.health_score >= 40 else 'FAILING')) %}
+    <div class="health-label" style="color:{{ hc }}">
+      <div class="health-num">{{ report.health_score }}</div>
+      <div class="health-text">{{ hl }}</div>
     </div>
   </div>
+</div>
 
-  <!-- KPI Cards -->
-  <div class="kpi-row">
-    <div class="kpi-card kpi-fatal">
-      <div class="kpi-icon">💀</div>
-      <div class="kpi-value">{{len .Report.CrashDumps}}</div>
-      <div class="kpi-label">Crash Dumps</div>
+<div class="kpi-row">
+  <div class="kpi-card kpi-fatal"><div class="kpi-icon">💀</div><div class="kpi-value">{{ report.crash_dumps|length }}</div><div class="kpi-label">Crash Dumps</div></div>
+  <div class="kpi-card kpi-error"><div class="kpi-icon">🚨</div><div class="kpi-value">{{ report.oom_events|length }}</div><div class="kpi-label">OOM Events</div></div>
+  <div class="kpi-card kpi-warning"><div class="kpi-icon">⚠</div><div class="kpi-value">{{ report.top_issues|length }}</div><div class="kpi-label">Diagnosed Issues</div></div>
+  <div class="kpi-card kpi-info"><div class="kpi-icon">📋</div><div class="kpi-value">{{ report.log_files|length }}</div><div class="kpi-label">Log Files</div></div>
+</div>
+
+<section class="section">
+  <h2 class="section-title">🔍 Diagnosed Issues</h2>
+  {% if report.top_issues|length == 0 %}
+  <div class="empty-state">No issues found in scanned files. System looks clean.</div>
+  {% endif %}
+  {% for issue in report.top_issues %}
+  <div class="issue-card sev-{{ issue.severity }}">
+    <div class="issue-header">
+      <span class="badge badge-{{ issue.severity|lower }}">{{ issue.severity }}</span>
+      <span class="issue-id">{{ issue.id }}</span>
+      <span class="issue-source">Source: {{ issue.source }}</span>
+      <span class="issue-time">{{ issue.timestamp | fmt_time }}</span>
     </div>
-    <div class="kpi-card kpi-error">
-      <div class="kpi-icon">🚨</div>
-      <div class="kpi-value">{{len .Report.OOMEvents}}</div>
-      <div class="kpi-label">OOM Events</div>
-    </div>
-    <div class="kpi-card kpi-warning">
-      <div class="kpi-icon">⚠</div>
-      <div class="kpi-value">{{len .Report.TopIssues}}</div>
-      <div class="kpi-label">Diagnosed Issues</div>
-    </div>
-    <div class="kpi-card kpi-info">
-      <div class="kpi-icon">📋</div>
-      <div class="kpi-value">{{len .Report.LogFiles}}</div>
-      <div class="kpi-label">Log Files</div>
+    <h3 class="issue-title">{{ issue.title }}</h3>
+    {% if issue.location %}<div class="meta-tag" style="display:inline-block;margin-bottom:.6rem">📍 Where: {{ issue.location }}</div>{% endif %}
+    <div class="issue-grid">
+      <div class="issue-block"><div class="block-label">📖 Description</div><div class="block-text">{{ issue.description }}</div></div>
+      <div class="issue-block"><div class="block-label">🎯 Root Cause (Why)</div><div class="block-text highlight-cause">{{ issue.root_cause }}</div></div>
+      <div class="issue-block"><div class="block-label">💥 Impact</div><div class="block-text">{{ issue.impact }}</div></div>
+      <div class="issue-block"><div class="block-label">🛠 Resolution Steps</div>
+        <ol class="resolution-list">{% for step in issue.resolution %}<li>{{ step }}</li>{% endfor %}</ol>
+      </div>
+      {% if issue.prevention %}
+      <div class="issue-block" style="grid-column:1/-1"><div class="block-label">🛡 How to Prevent Recurrence</div>
+        <ol class="resolution-list">{% for step in issue.prevention %}<li>{{ step }}</li>{% endfor %}</ol>
+      </div>
+      {% endif %}
     </div>
   </div>
+  {% endfor %}
+</section>
 
-  <!-- Top Issues -->
-  <section class="section">
-    <h2 class="section-title">🔍 Diagnosed Issues</h2>
-    {{range .Report.TopIssues}}
-    <div class="issue-card sev-{{.Severity}}">
-      <div class="issue-header">
-        <span class="badge badge-{{severityClass .Severity}}">{{severityIcon .Severity}} {{.Severity}}</span>
-        <span class="issue-id">{{.ID}}</span>
-        <span class="issue-source">Source: {{.Source}}</span>
-        <span class="issue-time">{{formatTime .Timestamp}}</span>
+<section class="section">
+  <h2 class="section-title">💀 Crash Dumps ({{ report.crash_dumps|length }})</h2>
+  <div class="card-grid">
+    {% for c in report.crash_dumps %}
+    <div class="crash-card">
+      <div class="crash-header">
+        <span class="signal-badge">SIG{{ c.signal }}</span>
+        <span class="crash-service">{{ c.service_name }}</span>
+        <span class="crash-time">{{ c.timestamp | fmt_time }}</span>
       </div>
-      <h3 class="issue-title">{{.Title}}</h3>
-      <div class="issue-grid">
-        <div class="issue-block">
-          <div class="block-label">📖 Description</div>
-          <div class="block-text">{{.Description}}</div>
+      <div class="crash-pid">PID: {{ c.process_id }} | {{ c.host }} | SID: {{ c.sid }}</div>
+      <div class="crash-reason">{{ c.crash_reason }}</div>
+      <div class="stack-preview">
+        {% for f in c.stack_trace[:3] %}
+        <div class="frame-mini {% if f.is_hana_code %}frame-hana{% endif %}">
+          <span class="frame-num">#{{ f.frame_num }}</span><span class="frame-fn">{{ f.function }}</span>
         </div>
-        <div class="issue-block">
-          <div class="block-label">🎯 Root Cause</div>
-          <div class="block-text highlight-cause">{{.RootCause}}</div>
-        </div>
-        <div class="issue-block">
-          <div class="block-label">💥 Impact</div>
-          <div class="block-text">{{.Impact}}</div>
-        </div>
-        <div class="issue-block">
-          <div class="block-label">🛠 Resolution Steps</div>
-          <ol class="resolution-list">
-            {{range .Resolution}}<li>{{.}}</li>{{end}}
-          </ol>
-        </div>
+        {% endfor %}
       </div>
-      {{if .References}}
-      <div class="issue-refs">
-        {{range .References}}<span class="ref-tag">📎 {{.}}</span>{{end}}
-      </div>
-      {{end}}
+      <a href="/crash/{{ loop.index0 }}" class="btn-detail">View Full Analysis →</a>
     </div>
-    {{end}}
-  </section>
+    {% endfor %}
+  </div>
+</section>
 
-  <!-- Crash Dumps Section -->
-  <section class="section">
-    <h2 class="section-title">💀 Crash Dumps ({{len .Report.CrashDumps}})</h2>
-    <div class="card-grid">
-      {{range $i, $c := .Report.CrashDumps}}
-      <div class="crash-card">
-        <div class="crash-header">
-          <span class="signal-badge">SIG{{$c.Signal}}</span>
-          <span class="crash-service">{{$c.ServiceName}}</span>
-          <span class="crash-time">{{formatTime $c.Timestamp}}</span>
-        </div>
-        <div class="crash-pid">PID: {{$c.ProcessID}} | {{$c.Host}} | SID: {{$c.SID}}</div>
-        <div class="crash-reason">{{$c.CrashReason}}</div>
-        <div class="stack-preview">
-          {{range $j, $f := $c.StackTrace}}
-          {{if lt $j 3}}
-          <div class="frame-mini {{if $f.IsHANACode}}frame-hana{{end}}">
-            <span class="frame-num">#{{$f.FrameNum}}</span>
-            <span class="frame-fn">{{$f.Function}}</span>
-          </div>
-          {{end}}
-          {{end}}
-          {{if gt (len $c.StackTrace) 3}}<div class="frame-more">+ {{add (len $c.StackTrace) -3}} more frames</div>{{end}}
-        </div>
-        <a href="/crash/{{$i}}" class="btn-detail">View Full Analysis →</a>
-      </div>
-      {{end}}
+<section class="section">
+  <h2 class="section-title">🚨 Out-of-Memory Events ({{ report.oom_events|length }})</h2>
+  {% for o in report.oom_events %}
+  <div class="oom-summary-card">
+    <div class="oom-header">
+      <span class="oom-badge">OOM</span>
+      <span class="oom-service">{{ o.service_name }}</span>
+      <span class="oom-time">{{ o.timestamp | fmt_time }}</span>
     </div>
-  </section>
+    <div class="oom-stats-row">
+      <div class="oom-stat"><div class="stat-label">Used</div><div class="stat-val">{{ o.used_memory | fmt_bytes }}</div></div>
+      <div class="oom-stat"><div class="stat-label">Limit</div><div class="stat-val">{{ o.memory_limit | fmt_bytes }}</div></div>
+      <div class="oom-stat"><div class="stat-label">Requested</div><div class="stat-val">{{ o.requested_size | fmt_bytes }}</div></div>
+    </div>
+    <div class="mem-bar-container">
+      <div class="mem-bar-label">Memory Utilization</div>
+      <div class="mem-bar-track">
+        <div class="mem-bar-fill" style="width:{{ '%.1f' | format(pct(o.used_memory, o.memory_limit)) }}%"></div>
+        <span class="mem-bar-pct">{{ '%.1f' | format(pct(o.used_memory, o.memory_limit)) }}%</span>
+      </div>
+    </div>
+    <a href="/oom/{{ loop.index0 }}" class="btn-detail">View Full OOM Analysis →</a>
+  </div>
+  {% endfor %}
+</section>
 
-  <!-- OOM Events Section -->
-  <section class="section">
-    <h2 class="section-title">🚨 Out-of-Memory Events ({{len .Report.OOMEvents}})</h2>
-    {{range $i, $o := .Report.OOMEvents}}
-    <div class="oom-summary-card">
-      <div class="oom-header">
-        <span class="oom-badge">OOM</span>
-        <span class="oom-service">{{$o.ServiceName}}</span>
-        <span class="oom-type">{{$o.OOMType}}</span>
-        <span class="oom-time">{{formatTime $o.Timestamp}}</span>
-      </div>
-      <div class="oom-stats-row">
-        <div class="oom-stat">
-          <div class="stat-label">Used</div>
-          <div class="stat-val">{{formatBytes $o.UsedMemory}}</div>
-        </div>
-        <div class="oom-stat">
-          <div class="stat-label">Limit</div>
-          <div class="stat-val">{{formatBytes $o.MemoryLimit}}</div>
-        </div>
-        <div class="oom-stat">
-          <div class="stat-label">Requested</div>
-          <div class="stat-val">{{formatBytes $o.RequestedSize}}</div>
-        </div>
-        <div class="oom-stat">
-          <div class="stat-label">Killed</div>
-          <div class="stat-val red">{{$o.KilledProcess}}</div>
-        </div>
-      </div>
-      <!-- Mini memory bar -->
-      <div class="mem-bar-container">
-        <div class="mem-bar-label">Memory Utilization</div>
-        <div class="mem-bar-track">
-          <div class="mem-bar-fill" style="width:{{printf "%.1f" (pct $o.UsedMemory $o.MemoryLimit)}}%"></div>
-          <span class="mem-bar-pct">{{printf "%.1f" (pct $o.UsedMemory $o.MemoryLimit)}}%</span>
-        </div>
-      </div>
-      <a href="/oom/{{$i}}" class="btn-detail">View Full OOM Analysis →</a>
-    </div>
-    {{end}}
-  </section>
-
-  <!-- Log Timeline Overview -->
-  {{range .Report.LogFiles}}
-  <section class="section">
-    <h2 class="section-title">📋 Log Activity: {{.Filename}}</h2>
-    <div class="log-meta-row">
-      <span>Service: <b>{{.ServiceName}}</b></span>
-      <span class="badge badge-error">{{.ErrorCount}} Errors</span>
-      <span class="badge badge-warning">{{.WarnCount}} Warnings</span>
-      <a href="/logs" class="btn-detail">Open Log Viewer →</a>
-    </div>
-    <div class="chart-box">
-      <canvas id="logTimelineChart" height="80"></canvas>
-    </div>
-    <script>
-    (function(){
-      var tl = {{toJSON .Timeline}};
-      var labels = tl.map(function(b){ return b.time.substr(11,5); });
-      var errors  = tl.map(function(b){ return b.errors; });
-      var warns   = tl.map(function(b){ return b.warnings; });
-      var infos   = tl.map(function(b){ return b.infos; });
-      new Chart(document.getElementById('logTimelineChart'), {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: 'Errors/Fatal', data: errors, backgroundColor: '#ef4444', stack: 's' },
-            { label: 'Warnings',     data: warns,  backgroundColor: '#f59e0b', stack: 's' },
-            { label: 'Info',         data: infos,  backgroundColor: '#3b82f6', stack: 's' },
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: '#94a3b8' } } },
-          scales: {
-            x: { stacked: true, ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
-            y: { stacked: true, ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
-          }
-        }
-      });
-    })();
-    </script>
-  </section>
-  {{end}}
-</main>
+{% for lf in report.log_files %}
+<section class="section">
+  <h2 class="section-title">📋 Log Activity: {{ lf.filename }}</h2>
+  <div class="log-meta-row">
+    <span class="badge badge-error">{{ lf.error_count }} Errors</span>
+    <span class="badge badge-warning">{{ lf.warn_count }} Warnings</span>
+    <a href="/logs" class="btn-detail">Open Log Viewer →</a>
+  </div>
+</section>
+{% endfor %}
 
 <script>
-// Health gauge
 (function(){
-  var score = {{.Report.HealthScore}};
+  var score = {{ report.health_score }};
   var canvas = document.getElementById('healthGauge');
   var ctx = canvas.getContext('2d');
   var cx = 60, cy = 70, r = 50;
   var startAngle = Math.PI, endAngle = 2*Math.PI;
   var scoreAngle = startAngle + (score/100) * Math.PI;
-  // Track
   ctx.beginPath(); ctx.arc(cx,cy,r,startAngle,endAngle);
   ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 12; ctx.stroke();
-  // Fill
   var color = score >= 80 ? '#22c55e' : score >= 60 ? '#f59e0b' : score >= 40 ? '#f97316' : '#ef4444';
   ctx.beginPath(); ctx.arc(cx,cy,r,startAngle,scoreAngle);
-  ctx.strokeStyle = color; ctx.lineWidth = 12;
-  ctx.lineCap = 'round'; ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = 12; ctx.lineCap = 'round'; ctx.stroke();
 })();
 </script>
-<footer class="footer">SAP HANA Diagnostic Viewer — For analysis use only. Generated at {{formatTime .Report.GeneratedAt}}</footer>
-</body>
-</html>
+{% endblock %}

@@ -1,310 +1,90 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OOM Event — {{.OOM.ServiceName}}</title>
-<link rel="stylesheet" href="/static/css/main.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-</head>
-<body>
-<nav class="navbar">
-  <div class="nav-brand">
-    <span class="brand-icon">⬡</span>
-    <span class="brand-text">HANA Diagnostic Viewer</span>
-  </div>
-  <div class="nav-links">
-    <a href="/" class="nav-link">← Dashboard</a>
-    <a href="/logs" class="nav-link">Log Viewer</a>
-  </div>
-</nav>
+{% extends "base.html" %}
+{% block title %}OOM Event — {{ oom.service_name }}{% endblock %}
+{% block content %}
 
-<main class="main-content">
-
-  <!-- OOM Hero -->
-  <div class="oom-hero">
-    <div class="oom-hero-left">
-      <div class="oom-signal-big">OOM</div>
-      <div class="oom-signal-desc">Out of Memory</div>
-      <div class="oom-type-badge">{{.OOM.OOMType}}</div>
-    </div>
-    <div class="oom-hero-info">
-      <h1 class="crash-hero-title">OOM Event Analysis</h1>
-      <div class="crash-hero-meta">
-        <span class="meta-tag">🔧 {{.OOM.ServiceName}}</span>
-        <span class="meta-tag">🆔 PID {{.OOM.ProcessID}}</span>
-        <span class="meta-tag">🖥 {{.OOM.Host}}</span>
-        <span class="meta-tag">🗃 SID: {{.OOM.SID}}</span>
-        <span class="meta-tag">🕐 {{formatTime .OOM.Timestamp}}</span>
-        {{if .OOM.KilledProcess}}<span class="meta-tag red-tag">💀 Killed: {{.OOM.KilledProcess}}</span>{{end}}
-      </div>
-      <div class="oom-root-cause-box">{{.OOM.RootCause}}</div>
-    </div>
+<div class="oom-hero">
+  <div class="oom-hero-left">
+    <div class="oom-signal-big">OOM</div>
+    <div class="oom-signal-desc">Out of Memory</div>
   </div>
+  <div class="oom-hero-info">
+    <h1 class="crash-hero-title">OOM Event Analysis</h1>
+    <div class="crash-hero-meta">
+      <span class="meta-tag">🔧 {{ oom.service_name }}</span>
+      <span class="meta-tag">🖥 {{ oom.host }}</span>
+      <span class="meta-tag">🗃 SID: {{ oom.sid }}</span>
+      <span class="meta-tag">🕐 {{ oom.timestamp | fmt_time }}</span>
+    </div>
+    <div class="oom-root-cause-box">{{ oom.root_cause }}</div>
+  </div>
+</div>
 
-  <!-- Memory Stats Row -->
-  <div class="mem-kpi-row">
-    <div class="mem-kpi">
-      <div class="mem-kpi-label">Used Memory</div>
-      <div class="mem-kpi-val red">{{formatBytes .OOM.UsedMemory}}</div>
-      <div class="mem-kpi-sub">{{printf "%.1f" (pct .OOM.UsedMemory .OOM.MemoryLimit)}}% of limit</div>
-    </div>
-    <div class="mem-kpi">
-      <div class="mem-kpi-label">Memory Limit</div>
-      <div class="mem-kpi-val">{{formatBytes .OOM.MemoryLimit}}</div>
-      <div class="mem-kpi-sub">global_allocation_limit</div>
-    </div>
-    <div class="mem-kpi">
-      <div class="mem-kpi-label">Free Memory</div>
-      <div class="mem-kpi-val yellow">{{formatBytes .OOM.FreeMemory}}</div>
-      <div class="mem-kpi-sub">at time of OOM</div>
-    </div>
-    <div class="mem-kpi">
-      <div class="mem-kpi-label">Requested Size</div>
-      <div class="mem-kpi-val red">{{formatBytes .OOM.RequestedSize}}</div>
-      <div class="mem-kpi-sub">Failed allocation</div>
+<div class="mem-kpi-row">
+  <div class="mem-kpi"><div class="mem-kpi-label">Used Memory</div><div class="mem-kpi-val red">{{ oom.used_memory | fmt_bytes }}</div>
+    <div class="mem-kpi-sub">{{ '%.1f' | format(pct(oom.used_memory, oom.memory_limit)) }}% of limit</div></div>
+  <div class="mem-kpi"><div class="mem-kpi-label">Memory Limit</div><div class="mem-kpi-val">{{ oom.memory_limit | fmt_bytes }}</div></div>
+  <div class="mem-kpi"><div class="mem-kpi-label">Free Memory</div><div class="mem-kpi-val yellow">{{ oom.free_memory | fmt_bytes }}</div></div>
+  <div class="mem-kpi"><div class="mem-kpi-label">Requested Size</div><div class="mem-kpi-val red">{{ oom.requested_size | fmt_bytes }}</div></div>
+</div>
+
+<section class="section">
+  <h2 class="section-title">🍕 Top Memory Consumers</h2>
+  <div class="consumers-layout">
+    <div class="consumers-chart"><canvas id="consumersChart"></canvas></div>
+    <div class="consumers-table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Component</th><th>Used</th><th>Share</th></tr></thead>
+        <tbody>
+          {% for c in oom.consumers %}
+          <tr>
+            <td class="consumer-name">{{ c.name }}</td>
+            <td class="num-cell">{{ c.used_bytes | fmt_bytes }}</td>
+            <td><div class="inline-bar"><div class="inline-bar-fill" style="width:{{ c.percentage }}%"></div>
+              <span class="inline-bar-pct">{{ c.percentage }}%</span></div></td>
+          </tr>
+          {% endfor %}
+          {% if oom.consumers|length == 0 %}
+          <tr><td colspan="3" class="empty-state">No consumer table found in source file.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
     </div>
   </div>
+</section>
 
-  <!-- Memory Timeline Chart -->
-  <section class="section">
-    <h2 class="section-title">📈 Memory Usage Timeline (Leading to OOM)</h2>
-    <div class="chart-box" style="height:260px">
-      <canvas id="memTimelineChart"></canvas>
-    </div>
-    <div class="chart-note">↑ Memory climbed steadily for ~60 minutes before exhausting the limit. The OOM event occurred when memory reached the global_allocation_limit.</div>
-  </section>
+<section class="section">
+  <h2 class="section-title">🛠 Recommendations</h2>
+  <div class="action-list">
+    <div class="action-item"><span class="action-num">1</span><div>
+      <div class="action-title">Source File</div>
+      <div class="action-desc"><code>{{ oom.source_file }}</code></div>
+    </div></div>
+    <div class="action-item"><span class="action-num">2</span><div>
+      <div class="action-title">Check Current Memory</div>
+      <div class="action-desc"><code>SELECT * FROM M_HEAP_MEMORY ORDER BY EXCLUSIVE_SIZE_IN_USE DESC LIMIT 20;</code></div>
+    </div></div>
+    <div class="action-item"><span class="action-num">3</span><div>
+      <div class="action-title">Find Memory-Heavy Queries</div>
+      <div class="action-desc"><code>SELECT STATEMENT_STRING, TOTAL_MEMORY_SIZE FROM M_EXPENSIVE_STATEMENTS ORDER BY TOTAL_MEMORY_SIZE DESC;</code></div>
+    </div></div>
+  </div>
+</section>
 
-  <!-- Top Consumers Donut + Table -->
-  <section class="section">
-    <h2 class="section-title">🍕 Top Memory Consumers at OOM Time</h2>
-    <div class="consumers-layout">
-      <div class="consumers-chart">
-        <canvas id="consumersChart"></canvas>
-      </div>
-      <div class="consumers-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr><th>Component</th><th>Category</th><th>Used</th><th>Peak</th><th>Share</th></tr>
-          </thead>
-          <tbody>
-            {{range .OOM.Consumers}}
-            <tr>
-              <td class="consumer-name">{{.Name}}</td>
-              <td><span class="category-tag">{{.Category}}</span></td>
-              <td class="num-cell">{{formatBytes .UsedBytes}}</td>
-              <td class="num-cell muted">{{formatBytes .PeakBytes}}</td>
-              <td>
-                <div class="inline-bar">
-                  <div class="inline-bar-fill" style="width:{{printf "%.0f" .Percentage}}%"></div>
-                  <span class="inline-bar-pct">{{printf "%.1f" .Percentage}}%</span>
-                </div>
-              </td>
-            </tr>
-            {{end}}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- Memory Pool Stats -->
-  {{if .OOM.PoolStats}}
-  <section class="section">
-    <h2 class="section-title">🏊 Memory Pool Statistics</h2>
-    <div class="chart-box" style="height:200px">
-      <canvas id="poolChart"></canvas>
-    </div>
-    <table class="data-table" style="margin-top:1rem">
-      <thead>
-        <tr><th>Pool</th><th>Used</th><th>Allocated</th><th>Free</th><th>Fragmentation</th></tr>
-      </thead>
-      <tbody>
-        {{range .OOM.PoolStats}}
-        <tr>
-          <td>{{.PoolName}}</td>
-          <td class="num-cell">{{formatBytes .UsedBytes}}</td>
-          <td class="num-cell">{{formatBytes .AllocBytes}}</td>
-          <td class="num-cell">{{formatBytes .FreeBytes}}</td>
-          <td>
-            <div class="frag-bar">
-              <div class="frag-fill {{if gt .Fragmented 15.0}}frag-high{{else if gt .Fragmented 8.0}}frag-med{{else}}frag-low{{end}}"
-                   style="width:{{printf "%.0f" .Fragmented}}%"></div>
-              <span>{{printf "%.1f" .Fragmented}}%</span>
-            </div>
-          </td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </section>
-  {{end}}
-
-  <!-- OOM Stack Trace -->
-  {{if .OOM.StackTrace}}
-  <section class="section">
-    <h2 class="section-title">📚 Allocation Stack Trace (Where OOM was Triggered)</h2>
-    <div class="stack-hint">This is the call stack at the point where the memory allocation failed.</div>
-    <div class="stack-trace-container">
-      {{range .OOM.StackTrace}}
-      <div class="stack-frame {{if .IsHANACode}}frame-is-hana{{end}} {{if eq .FrameNum 0}}frame-crash{{end}}">
-        <div class="frame-header">
-          <span class="frame-number">#{{.FrameNum}}</span>
-          {{if eq .FrameNum 0}}<span class="frame-crash-arrow">← OOM HERE</span>{{end}}
-          <span class="frame-addr">{{.Address}}</span>
-          {{if .IsHANACode}}<span class="frame-hana-tag">HANA</span>{{end}}
-        </div>
-        <div class="frame-function">{{.Function}}</div>
-        {{if .Description}}<div class="frame-desc">💡 {{.Description}}</div>{{end}}
-        {{if .File}}<div class="frame-location">📁 {{.File}}{{if .Line}}:{{.Line}}{{end}}</div>{{end}}
-      </div>
-      {{end}}
-    </div>
-  </section>
-  {{end}}
-
-  <!-- Recommendation -->
-  <section class="section">
-    <h2 class="section-title">🛠 Recommendations</h2>
-    <div class="recommendation-box">
-      <pre class="rec-text">{{.OOM.Recommendation}}</pre>
-    </div>
-    <div class="action-list">
-      <div class="action-item">
-        <span class="action-num">1</span>
-        <div>
-          <div class="action-title">Immediate: Check Current Memory</div>
-          <div class="action-desc"><code>SELECT * FROM M_HEAP_MEMORY ORDER BY EXCLUSIVE_SIZE_IN_USE DESC LIMIT 20;</code></div>
-        </div>
-      </div>
-      <div class="action-item">
-        <span class="action-num">2</span>
-        <div>
-          <div class="action-title">Find Memory-Heavy Queries</div>
-          <div class="action-desc"><code>SELECT STATEMENT_STRING, TOTAL_MEMORY_SIZE FROM M_EXPENSIVE_STATEMENTS ORDER BY TOTAL_MEMORY_SIZE DESC;</code></div>
-        </div>
-      </div>
-      <div class="action-item">
-        <span class="action-num">3</span>
-        <div>
-          <div class="action-title">Check Column Store Size</div>
-          <div class="action-desc"><code>SELECT SCHEMA_NAME, TABLE_NAME, MEMORY_SIZE_IN_TOTAL FROM M_CS_TABLES ORDER BY MEMORY_SIZE_IN_TOTAL DESC LIMIT 20;</code></div>
-        </div>
-      </div>
-      <div class="action-item">
-        <span class="action-num">4</span>
-        <div>
-          <div class="action-title">Review SAP Notes</div>
-          <div class="action-desc">SAP Notes: 1999997 (FAQ: SAP HANA Memory), 2222200 (HANA Memory Management), 1840986 (OOM situations)</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-</main>
+<a href="/" class="btn-detail">← Back to Dashboard</a>
 
 <script>
-// Memory Timeline
 (function(){
-  var tl = {{toJSON .OOM.Timeline}};
-  var labels = tl.map(function(p){ return p.timestamp.substr(11,5); });
-  var used   = tl.map(function(p){ return p.used_mb; });
-  var lim    = tl.map(function(p){ return p.limit_mb; });
-  new Chart(document.getElementById('memTimelineChart'), {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: 'Used Memory (MB)',
-          data: used,
-          borderColor: '#ef4444',
-          backgroundColor: 'rgba(239,68,68,0.15)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 0,
-        },
-        {
-          label: 'Limit (MB)',
-          data: lim,
-          borderColor: '#64748b',
-          borderDash: [6,3],
-          fill: false,
-          tension: 0,
-          pointRadius: 0,
-        }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#94a3b8' } } },
-      scales: {
-        x: { ticks: { color: '#94a3b8', maxTicksLimit: 10 }, grid: { color: '#1e293b' } },
-        y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
-      }
-    }
-  });
-})();
-
-// Consumers Donut
-(function(){
-  var consumers = {{toJSON .OOM.Consumers}};
+  var consumers = {{ oom.consumers | tojson_safe | safe }};
   var labels = consumers.map(function(c){ return c.name; });
   var data   = consumers.map(function(c){ return c.percentage; });
   var colors = ['#ef4444','#f97316','#f59e0b','#22c55e','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
-  new Chart(document.getElementById('consumersChart'), {
-    type: 'doughnut',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: data,
-        backgroundColor: colors,
-        borderColor: '#0f172a',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      plugins: {
-        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 14, padding: 8 } },
-        tooltip: {
-          callbacks: {
-            label: function(ctx){ return ctx.label + ': ' + ctx.parsed.toFixed(1) + '%'; }
-          }
-        }
-      }
-    }
-  });
+  if (labels.length) {
+    new Chart(document.getElementById('consumersChart'), {
+      type: 'doughnut',
+      data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderColor: '#0f172a', borderWidth: 2 }] },
+      options: { plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 14, padding: 8 } } } }
+    });
+  }
 })();
-
-// Pool Chart
-{{if .OOM.PoolStats}}
-(function(){
-  var pools = {{toJSON .OOM.PoolStats}};
-  var labels = pools.map(function(p){ return p.pool_name; });
-  var used   = pools.map(function(p){ return (p.used_bytes/1073741824).toFixed(2); });
-  var free   = pools.map(function(p){ return (p.free_bytes/1073741824).toFixed(2); });
-  new Chart(document.getElementById('poolChart'), {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label: 'Used (GB)', data: used, backgroundColor: '#ef4444', stack: 's' },
-        { label: 'Free (GB)', data: free, backgroundColor: '#1e3a5f', stack: 's' }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#94a3b8' } } },
-      scales: {
-        x: { stacked: true, ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
-        y: { stacked: true, ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' }, title: { display: true, text: 'GB', color: '#94a3b8' } }
-      }
-    }
-  });
-})();
-{{end}}
 </script>
-
-<footer class="footer">SAP HANA Diagnostic Viewer — OOM Event #{{inc .Index}} Analysis</footer>
-</body>
-</html>
+{% endblock %}
