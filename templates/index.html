@@ -5,10 +5,17 @@
 <form method="POST" action="/api/rescan" class="filter-bar" style="margin-bottom:1rem">
   <div class="filter-group" style="flex:1">
     <label class="filter-label">File or directory to analyze</label>
-    <input type="text" name="path" value="{{ report.trace_dir }}" placeholder="/usr/sap/HDB/HDB00/trace or a single .trc file" class="filter-input" style="width:100%;min-width:0">
+    <input type="text" name="path" value="{{ trace_dir }}" placeholder="/usr/sap/HDB/HDB00/trace/indexserver.30003.crashdump.20260615.trc" class="filter-input" style="width:100%;min-width:0">
   </div>
   <button type="submit" class="filter-btn">🔍 Analyze</button>
 </form>
+
+{% if error %}
+<div class="empty-state" style="border:1px solid #ef4444;color:#ef4444;margin-bottom:1rem">⚠ {{ error }}</div>
+{% endif %}
+{% if not trace_dir and not error %}
+<div class="empty-state" style="margin-bottom:1rem">Showing sample data. Enter the path to a real crash dump, OOM trace, or log file/directory above and click Analyze to see the actual diagnosis.</div>
+{% endif %}
 
 <div class="system-header">
   <div class="system-info">

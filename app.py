@@ -22,15 +22,20 @@ import scanner
 import sample_data
 
 app = Flask(__name__)
-STATE = {"report": None, "trace_dir": "", "lock": threading.Lock()}
+STATE = {"report": None, "trace_dir": "", "lock": threading.Lock(), "error": ""}
 
 
 def rescan():
     with STATE["lock"]:
-        if STATE["trace_dir"]:
+        if not STATE["trace_dir"]:
+            if STATE["report"] is None:
+                STATE["report"] = sample_data.generate()
+            return
+        try:
             STATE["report"] = scanner.scan_path(STATE["trace_dir"])
-        elif STATE["report"] is None:
-            STATE["report"] = sample_data.generate()
+            STATE["error"] = ""
+        except Exception as exc:
+            STATE["error"] = f"Could not analyze '{STATE['trace_dir']}': {exc}"
 
 
 def current_report():
@@ -65,7 +70,8 @@ def inject_now():
 @app.route("/")
 def index():
     report = current_report()
-    return render_template("index.html", report=report, trace_dir=STATE["trace_dir"], page="dashboard")
+    return render_template("index.html", report=report, trace_dir=STATE["trace_dir"],
+                            error=STATE["error"], page="dashboard")
 
 
 @app.route("/crash/<int:idx>")
@@ -110,6 +116,9 @@ def api_report():
 def api_rescan():
     new_path = request.form.get("path", "").strip()
     if new_path:
+        if not os.path.exists(new_path):
+            STATE["error"] = f"Path not found on this server: {new_path}"
+            return redirect(url_for("index"))
         STATE["trace_dir"] = new_path
     rescan()
     return redirect(url_for("index"))
@@ -145,34 +154,25 @@ def api_upload():
 def main():
     parser = argparse.ArgumentParser(description="SAP HANA Diagnostic Viewer")
     parser.add_argument("--dir", default="", help="Path to a HANA trace file or directory to analyze. "
-                                                    "If omitted, you will be prompted for it. "
-                                                    "Type 'demo' to skip and use sample data.")
+                                                    "Optional — you can instead type the path into the "
+                                                    "'File or directory to analyze' box on the dashboard "
+                                                    "once the server is running.")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--host", default="127.0.0.1", help="Bind address (default 127.0.0.1, local-only).")
     args = parser.parse_args()
 
-    path = args.dir
-    if not path:
-        print("SAP HANA Diagnostic Viewer")
-        print("Enter the path to a HANA trace file or directory on this server")
-        print("(e.g. /usr/sap/HDB/HDB00/trace, or a single .trc/crash dump file).")
-        path = input("Path to analyze [demo]: ").strip()
-
-    if path and path.lower() != "demo":
-        if not os.path.exists(path):
-            print(f"ERROR: path does not exist: {path}")
+    if args.dir:
+        if not os.path.exists(args.dir):
+            print(f"ERROR: path does not exist: {args.dir}")
             raise SystemExit(1)
-        STATE["trace_dir"] = path
-    else:
-        STATE["trace_dir"] = ""
+        STATE["trace_dir"] = args.dir
 
     rescan()
 
-    mode = f"REAL DATA from {STATE['trace_dir']}" if STATE["trace_dir"] else "DEMO MODE (sample data)"
+    mode = f"REAL DATA from {STATE['trace_dir']}" if STATE["trace_dir"] else "no file/directory analyzed yet"
     print(f"\nHANA Diagnostic Viewer ({mode})")
-    print(f"  Dashboard : http://localhost:{args.port}/")
-    print(f"  Log Viewer: http://localhost:{args.port}/logs")
-    print(f"  JSON API  : http://localhost:{args.port}/api/report")
+    print(f"  Open in your browser: http://localhost:{args.port}/")
+    print("  Enter a trace file or directory path in the 'Analyze' box on that page.")
     if args.host == "127.0.0.1":
         print("  (bound to localhost only — use --host 0.0.0.0 to allow remote access)")
 
