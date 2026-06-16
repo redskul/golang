@@ -2,12 +2,20 @@
 {% block title %}Dashboard — HANA Diagnostic Viewer{% endblock %}
 {% block content %}
 
+<form method="POST" action="/api/rescan" class="filter-bar" style="margin-bottom:1rem">
+  <div class="filter-group" style="flex:1">
+    <label class="filter-label">File or directory to analyze</label>
+    <input type="text" name="path" value="{{ report.trace_dir }}" placeholder="/usr/sap/HDB/HDB00/trace or a single .trc file" class="filter-input" style="width:100%;min-width:0">
+  </div>
+  <button type="submit" class="filter-btn">🔍 Analyze</button>
+</form>
+
 <div class="system-header">
   <div class="system-info">
     <div class="sys-field"><span class="sys-label">Host</span><span class="sys-val">{{ report.host }}</span></div>
     <div class="sys-field"><span class="sys-label">SID</span><span class="sys-val">{{ report.sid }}</span></div>
     <div class="sys-field"><span class="sys-label">Generated</span><span class="sys-val">{{ report.generated_at | fmt_time }}</span></div>
-    {% if report.trace_dir %}<div class="sys-field"><span class="sys-label">Trace Dir</span><span class="sys-val">{{ report.trace_dir }}</span></div>{% endif %}
+    {% if report.trace_dir %}<div class="sys-field"><span class="sys-label">Analyzing</span><span class="sys-val">{{ report.trace_dir }}</span></div>{% endif %}
   </div>
   <div class="health-score-container">
     <canvas id="healthGauge" width="120" height="80"></canvas>
@@ -41,13 +49,19 @@
       <span class="issue-time">{{ issue.timestamp | fmt_time }}</span>
     </div>
     <h3 class="issue-title">{{ issue.title }}</h3>
+    {% if issue.location %}<div class="meta-tag" style="display:inline-block;margin-bottom:.6rem">📍 Where: {{ issue.location }}</div>{% endif %}
     <div class="issue-grid">
       <div class="issue-block"><div class="block-label">📖 Description</div><div class="block-text">{{ issue.description }}</div></div>
-      <div class="issue-block"><div class="block-label">🎯 Root Cause</div><div class="block-text highlight-cause">{{ issue.root_cause }}</div></div>
+      <div class="issue-block"><div class="block-label">🎯 Root Cause (Why)</div><div class="block-text highlight-cause">{{ issue.root_cause }}</div></div>
       <div class="issue-block"><div class="block-label">💥 Impact</div><div class="block-text">{{ issue.impact }}</div></div>
       <div class="issue-block"><div class="block-label">🛠 Resolution Steps</div>
         <ol class="resolution-list">{% for step in issue.resolution %}<li>{{ step }}</li>{% endfor %}</ol>
       </div>
+      {% if issue.prevention %}
+      <div class="issue-block" style="grid-column:1/-1"><div class="block-label">🛡 How to Prevent Recurrence</div>
+        <ol class="resolution-list">{% for step in issue.prevention %}<li>{{ step }}</li>{% endfor %}</ol>
+      </div>
+      {% endif %}
     </div>
   </div>
   {% endfor %}

@@ -12,6 +12,7 @@ Usage:
 """
 import argparse
 import json
+import os
 import threading
 from datetime import datetime
 
@@ -27,7 +28,7 @@ STATE = {"report": None, "trace_dir": "", "lock": threading.Lock()}
 def rescan():
     with STATE["lock"]:
         if STATE["trace_dir"]:
-            STATE["report"] = scanner.scan_trace_dir(STATE["trace_dir"])
+            STATE["report"] = scanner.scan_path(STATE["trace_dir"])
         elif STATE["report"] is None:
             STATE["report"] = sample_data.generate()
 
@@ -107,6 +108,9 @@ def api_report():
 
 @app.route("/api/rescan", methods=["POST"])
 def api_rescan():
+    new_path = request.form.get("path", "").strip()
+    if new_path:
+        STATE["trace_dir"] = new_path
     rescan()
     return redirect(url_for("index"))
 
@@ -140,21 +144,39 @@ def api_upload():
 
 def main():
     parser = argparse.ArgumentParser(description="SAP HANA Diagnostic Viewer")
-    parser.add_argument("--dir", default="", help="HANA trace directory to scan (real data). "
-                                                    "If omitted, runs in demo mode.")
+    parser.add_argument("--dir", default="", help="Path to a HANA trace file or directory to analyze. "
+                                                    "If omitted, you will be prompted for it. "
+                                                    "Type 'demo' to skip and use sample data.")
     parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--host", default="127.0.0.1", help="Bind address (default 127.0.0.1, local-only).")
     args = parser.parse_args()
 
-    STATE["trace_dir"] = args.dir
+    path = args.dir
+    if not path:
+        print("SAP HANA Diagnostic Viewer")
+        print("Enter the path to a HANA trace file or directory on this server")
+        print("(e.g. /usr/sap/HDB/HDB00/trace, or a single .trc/crash dump file).")
+        path = input("Path to analyze [demo]: ").strip()
+
+    if path and path.lower() != "demo":
+        if not os.path.exists(path):
+            print(f"ERROR: path does not exist: {path}")
+            raise SystemExit(1)
+        STATE["trace_dir"] = path
+    else:
+        STATE["trace_dir"] = ""
+
     rescan()
 
-    mode = f"REAL DATA from {args.dir}" if args.dir else "DEMO MODE (sample data)"
-    print(f"HANA Diagnostic Viewer ({mode})")
+    mode = f"REAL DATA from {STATE['trace_dir']}" if STATE["trace_dir"] else "DEMO MODE (sample data)"
+    print(f"\nHANA Diagnostic Viewer ({mode})")
     print(f"  Dashboard : http://localhost:{args.port}/")
     print(f"  Log Viewer: http://localhost:{args.port}/logs")
     print(f"  JSON API  : http://localhost:{args.port}/api/report")
+    if args.host == "127.0.0.1":
+        print("  (bound to localhost only — use --host 0.0.0.0 to allow remote access)")
 
-    app.run(host="0.0.0.0", port=args.port, debug=False)
+    app.run(host=args.host, port=args.port, debug=False)
 
 
 if __name__ == "__main__":

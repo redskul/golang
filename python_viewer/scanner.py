@@ -317,6 +317,45 @@ def parse_log_file(path, text, host):
     }
 
 
+def scan_path(path):
+    """Scan a single file or a directory. Accepts whatever the user types in."""
+    if os.path.isfile(path):
+        return scan_single_file(path)
+    return scan_trace_dir(path)
+
+
+def scan_single_file(path):
+    host = socket.gethostname()
+    sid = "HDB"
+    report = {
+        "generated_at": datetime.now(), "host": host, "sid": sid,
+        "trace_dir": path,
+        "crash_dumps": [], "oom_events": [], "log_files": [],
+    }
+    try:
+        with open(path, "r", errors="ignore") as f:
+            text = f.read(8 * 1024 * 1024)
+    except OSError as e:
+        report["scan_error"] = str(e)
+        report["top_issues"] = []
+        report["health_score"] = 0
+        return report
+
+    kind = classify_file(os.path.basename(path), text[:65536])
+    if kind == "crash":
+        report["crash_dumps"].append(parse_crash_dump(path, text, host, sid))
+    elif kind == "oom":
+        report["oom_events"].append(parse_oom_event(path, text, host, sid))
+    else:
+        lf = parse_log_file(path, text, host)
+        if lf["entries"]:
+            report["log_files"].append(lf)
+
+    report["top_issues"] = derive_issues(report)
+    report["health_score"] = compute_health_score(report)
+    return report
+
+
 def scan_trace_dir(trace_dir):
     host = socket.gethostname()
     sid = "HDB"
@@ -359,6 +398,28 @@ def scan_trace_dir(trace_dir):
     return report
 
 
+def crash_top_frame_location(cd):
+    if cd["stack_trace"]:
+        f = cd["stack_trace"][0]
+        if f.get("file"):
+            return f"{f['file']}:{f['line']} ({f['function']})"
+        return f["function"]
+    return "unknown frame (no stack trace parsed)"
+
+
+def crash_prevention(cd):
+    sig = cd.get("signal", "")
+    base = [f"Apply the latest HANA revision/patch — {sig} crashes in this component are frequently fixed in later SPS/patch levels."]
+    if sig == "SIGSEGV":
+        base.append("If this is reproducible, disable the specific optimizer feature (e.g. parallel join) via configuration until patched.")
+    elif sig == "SIGABRT":
+        base.append("Run a consistency check (HANA's built-in check tables/check catalog) to rule out underlying data corruption.")
+    elif sig == "SIGKILL":
+        base.append("Treat this as a memory problem: see the OOM prevention steps below and check kernel OOM-killer logs (dmesg).")
+    base.append("Set up automatic crash-dump forwarding/alerting so recurrences are caught immediately, not discovered later.")
+    return base
+
+
 def derive_issues(report):
     issues = []
     for i, cd in enumerate(report["crash_dumps"]):
@@ -373,6 +434,8 @@ def derive_issues(report):
                 "Search SAP Notes for known issues matching this signal/component.",
                 "Open an SAP incident if the crash recurs.",
             ],
+            "prevention": crash_prevention(cd),
+            "location": f"{cd['service_name']} · {crash_top_frame_location(cd)}",
         })
     for i, oom in enumerate(report["oom_events"]):
         issues.append({
@@ -388,6 +451,13 @@ def derive_issues(report):
                 "Review top memory consumers (M_HEAP_MEMORY, M_EXPENSIVE_STATEMENTS).",
                 "Consider adding RAM or partitioning large tables.",
             ],
+            "prevention": [
+                "Set a memory threshold alert (e.g. 85% of global_allocation_limit) so you get paged before exhaustion, not after.",
+                "Cap per-statement memory with statement_memory_limit to stop one runaway query from starving the system.",
+                "Right-size global_allocation_limit against actual physical RAM, leaving headroom for OS and other processes.",
+                "Schedule regular review of M_EXPENSIVE_STATEMENTS to catch memory-heavy queries before they cause an OOM.",
+            ],
+            "location": f"{oom['service_name']} · top consumer: {oom['consumers'][0]['name'] if oom['consumers'] else 'unknown'}",
         })
     for lf in report["log_files"]:
         for e in lf["entries"]:
@@ -401,6 +471,8 @@ def derive_issues(report):
                 "root_cause": e["explanation"] or "No automatic explanation available — review manually.",
                 "impact": f"See {lf['filename']} for context.",
                 "resolution": [f"Review {lf['filename']} around line {e['line_num']}."],
+                "prevention": ["Add a log-monitoring alert for this message pattern so recurrence is caught immediately."],
+                "location": f"{e['component']} · {lf['filename']}:{e['line_num']}",
             })
     issues.sort(key=lambda i: i["timestamp"], reverse=True)
     return issues
