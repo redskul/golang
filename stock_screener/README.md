@@ -16,6 +16,15 @@ predict short-term price moves -- no free (or paid) system reliably does that. W
    (`thesis.py`).
 6. Renders everything into `output/latest_report.md`.
 
+## Two scripts, two jobs
+
+- `run_screen.py` -- reviews your **existing** holdings (`config/universe.yaml`) and tells you
+  whether to add to, trim, or hold each one.
+- `discover_us.py` -- screens a broad set of well-known US large/mega-caps you **don't**
+  currently own (`config/candidates_us.yaml`), automatically excludes anything already in your
+  holdings, and reports only the names that clear the Buy bar -- i.e. "new stock ideas," not a
+  portfolio review.
+
 ## Setup
 
 ```bash
@@ -28,10 +37,19 @@ export FRED_API_KEY=...                     # optional, free key, enables macro 
 ## Running
 
 ```bash
-python3 run_screen.py                  # full run with theses
+python3 run_screen.py                  # full holdings review with theses
 python3 run_screen.py --no-thesis      # quantitative scores only, no Claude calls
-python3 run_screen.py --ticker AAPL    # screen a single name
+python3 run_screen.py --ticker AAPL    # screen a single held name
+
+python3 discover_us.py                 # new US buy ideas, not currently held
+python3 discover_us.py --no-thesis     # quantitative scores only
+python3 discover_us.py --top 5         # cap the number of ideas reported
 ```
+
+`discover_us.py`'s candidate list (`config/candidates_us.yaml`) is a curated ~50-name set of
+sector-diversified US large/mega-caps -- not the full S&P 500. Edit that file to add/remove
+candidates; you don't need to manually exclude your own holdings, the script does that for you
+by cross-referencing `config/universe.yaml`.
 
 ## Keeping the universe in sync
 

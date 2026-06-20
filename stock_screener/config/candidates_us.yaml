@@ -1,0 +1,75 @@
+# Candidate universe for the US "new stock" discovery screen.
+#
+# A sector-diversified set of large/mega-cap, well-covered-by-yfinance US
+# stocks. This is NOT exhaustive (not the full S&P 500) -- it's a reasonable
+# starting list you can edit. Tickers already in config/universe.yaml
+# (i.e. things you already hold) are auto-excluded at runtime even if they
+# accidentally appear here too, so don't worry about manually deduping
+# against your holdings.
+currency: USD
+
+stocks:
+  # Mega-cap tech / platforms
+  - { name: Microsoft Corporation, ticker: MSFT, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Amazon.com Inc, ticker: AMZN, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Meta Platforms Inc, ticker: META, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Oracle Corporation, ticker: ORCL, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Salesforce Inc, ticker: CRM, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Adobe Inc, ticker: ADBE, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: ServiceNow Inc, ticker: NOW, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Intuit Inc, ticker: INTU, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: International Business Machines Corp, ticker: IBM, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Cisco Systems Inc, ticker: CSCO, market: US, market_cap_tier: Large Cap, market_value: 0 }
+
+  # Semiconductors (not already held)
+  - { name: Broadcom Inc, ticker: AVGO, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Qualcomm Inc, ticker: QCOM, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Texas Instruments Inc, ticker: TXN, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: ASML Holding NV, ticker: ASML, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Lam Research Corp, ticker: LRCX, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Applied Materials Inc, ticker: AMAT, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: KLA Corp, ticker: KLAC, market: US, market_cap_tier: Large Cap, market_value: 0 }
+
+  # Healthcare
+  - { name: UnitedHealth Group Inc, ticker: UNH, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Johnson & Johnson, ticker: JNJ, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Eli Lilly and Co, ticker: LLY, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: AbbVie Inc, ticker: ABBV, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Merck & Co Inc, ticker: MRK, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Thermo Fisher Scientific Inc, ticker: TMO, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Intuitive Surgical Inc, ticker: ISRG, market: US, market_cap_tier: Large Cap, market_value: 0 }
+
+  # Financials
+  - { name: JPMorgan Chase & Co, ticker: JPM, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Visa Inc, ticker: V, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Mastercard Inc, ticker: MA, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Bank of America Corp, ticker: BAC, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Goldman Sachs Group Inc, ticker: GS, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Berkshire Hathaway Inc Class B, ticker: BRK-B, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: American Express Co, ticker: AXP, market: US, market_cap_tier: Large Cap, market_value: 0 }
+
+  # Consumer
+  - { name: Costco Wholesale Corp, ticker: COST, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Walmart Inc, ticker: WMT, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Home Depot Inc, ticker: HD, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: McDonald's Corp, ticker: MCD, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Nike Inc, ticker: NKE, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Starbucks Corp, ticker: SBUX, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Procter & Gamble Co, ticker: PG, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Coca-Cola Co, ticker: KO, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: PepsiCo Inc, ticker: PEP, market: US, market_cap_tier: Large Cap, market_value: 0 }
+
+  # Industrials / Energy
+  - { name: Exxon Mobil Corp, ticker: XOM, market: US, market_cap_tier: Mega Cap, market_value: 0 }
+  - { name: Chevron Corp, ticker: CVX, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Caterpillar Inc, ticker: CAT, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Boeing Co, ticker: BA, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Honeywell International Inc, ticker: HON, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: General Electric Co, ticker: GE, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Lockheed Martin Corp, ticker: LMT, market: US, market_cap_tier: Large Cap, market_value: 0 }
+
+  # Communication services
+  - { name: Netflix Inc, ticker: NFLX, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Walt Disney Co, ticker: DIS, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Comcast Corp, ticker: CMCSA, market: US, market_cap_tier: Large Cap, market_value: 0 }
+  - { name: Verizon Communications Inc, ticker: VZ, market: US, market_cap_tier: Large Cap, market_value: 0 }

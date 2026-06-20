@@ -1,3 +1,4 @@
 __pycache__/
 *.pyc
-stock_screener/output/*.md
+stock_screener/output/latest_report.md
+stock_screener/output/us_buy_ideas.md
