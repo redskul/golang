@@ -1,0 +1,371 @@
+# Universe definition for the long-term screener.
+#
+# Generated from the user's real INDmoney holdings (IND_STOCK + US_STOCK,
+# equities only -- ETFs/gold/silver/liquid funds excluded since fundamentals
+# scoring doesn't apply to them). Re-run `scripts/sync_universe.py` (or ask
+# Claude Code, which has IndMoney MCP access, to refresh this file) whenever
+# your positions change.
+#
+# ticker: best-effort guess for yfinance. Entries with verified: false are
+# recent listings/small-caps where the symbol should be double-checked before
+# trusting fetched fundamentals.
+currency: INR
+
+stocks:
+  - name: HDFC Bank Ltd
+    ticker: HDFCBANK.NS
+    market: IN
+    market_cap_tier: Large Cap
+    market_value: 5458.60
+    verified: true
+
+  - name: ITC Ltd
+    ticker: ITC.NS
+    market: IN
+    market_cap_tier: Large Cap
+    market_value: 17550.00
+    verified: true
+
+  - name: Indian Railway Finance Corporation Ltd
+    ticker: IRFC.NS
+    market: IN
+    market_cap_tier: Large Cap
+    market_value: 4378.44
+    verified: true
+
+  - name: BSE Ltd
+    ticker: BSE.NS
+    market: IN
+    market_cap_tier: Large Cap
+    market_value: 229151.40
+    verified: true
+
+  - name: Siemens Energy India Ltd
+    ticker: SIEMENSEN.NS
+    market: IN
+    market_cap_tier: Large Cap
+    market_value: 15335.60
+    verified: true
+
+  - name: Tata Motors Ltd
+    ticker: TATAMOTORS.NS
+    market: IN
+    market_cap_tier: Large Cap
+    market_value: 3216.80
+    verified: true
+
+  - name: Tata Motors Passenger Vehicles Ltd
+    ticker: null
+    market: IN
+    market_cap_tier: Large Cap
+    market_value: 2876.00
+    verified: false  # demerged entity; confirm whether/where it trades separately
+
+  - name: Vedanta Ltd
+    ticker: VEDL.NS
+    market: IN
+    market_cap_tier: Large Cap
+    market_value: 5414.40
+    verified: true
+
+  - name: Vodafone Idea Ltd
+    ticker: IDEA.NS
+    market: IN
+    market_cap_tier: Large Cap
+    market_value: 179.04
+    verified: true
+
+  - name: Suzlon Energy Ltd
+    ticker: SUZLON.NS
+    market: IN
+    market_cap_tier: Mid Cap
+    market_value: 296.00
+    verified: true
+
+  - name: Ather Energy Ltd
+    ticker: ATHERENERG.NS
+    market: IN
+    market_cap_tier: Mid Cap
+    market_value: 8745.30
+    verified: false  # listed 2025, confirm symbol
+
+  - name: Thermax Ltd
+    ticker: THERMAX.NS
+    market: IN
+    market_cap_tier: Mid Cap
+    market_value: 14107.20
+    verified: true
+
+  - name: Mazagon Dock Shipbuilders Ltd
+    ticker: MAZDOCK.NS
+    market: IN
+    market_cap_tier: Mid Cap
+    market_value: 17630.90
+    verified: true
+
+  - name: Indian Railway Catering & Tourism Corporation Ltd
+    ticker: IRCTC.NS
+    market: IN
+    market_cap_tier: Mid Cap
+    market_value: 5196.00
+    verified: true
+
+  - name: Waaree Energies Ltd
+    ticker: WAAREEENER.NS
+    market: IN
+    market_cap_tier: Mid Cap
+    market_value: 15627.00
+    verified: true
+
+  - name: Rail Vikas Nigam Ltd
+    ticker: RVNL.NS
+    market: IN
+    market_cap_tier: Mid Cap
+    market_value: 9759.60
+    verified: true
+
+  - name: Jash Engineering Ltd
+    ticker: JASH.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 8500.85
+    verified: false
+
+  - name: Pondy Oxides & Chemicals Ltd
+    ticker: PONDYOXIDE.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 9401.00
+    verified: true
+
+  - name: Syrma SGS Technology Ltd
+    ticker: SYRMA.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 18676.00
+    verified: true
+
+  - name: Avalon Technologies Ltd
+    ticker: AVALON.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 13956.80
+    verified: true
+
+  - name: Quality Power Electrical Equipments Ltd
+    ticker: QUALITYPOWER.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 5282.40
+    verified: false
+
+  - name: Jain Resource Recycling Ltd
+    ticker: null
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 7912.80
+    verified: false  # recent IPO, confirm symbol
+
+  - name: Neogen Chemicals Ltd
+    ticker: NEOGEN.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 7728.00
+    verified: true
+
+  - name: Triveni Turbine Ltd
+    ticker: TRITURBINE.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 8067.60
+    verified: true
+
+  - name: GNG Electronics Ltd
+    ticker: GNG.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 16062.40
+    verified: false
+
+  - name: Emmvee Photovoltaic Power Ltd
+    ticker: null
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 7970.40
+    verified: false  # recent IPO, confirm symbol/listing
+
+  - name: Power Mech Projects Ltd
+    ticker: POWERMECH.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 5679.80
+    verified: true
+
+  - name: Zen Technologies Ltd
+    ticker: ZENTEC.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 3994.00
+    verified: true
+
+  - name: HBL Engineering Ltd
+    ticker: HBLENGINE.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 12232.50
+    verified: true
+
+  - name: Jaiprakash Power Ventures Ltd
+    ticker: JPPOWER.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 198.66
+    verified: true
+
+  - name: Shivalik Bimetal Controls Ltd
+    ticker: SHIVALIK.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 14184.45
+    verified: true
+
+  - name: TD Power Systems Ltd
+    ticker: TDPOWERSYS.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 16545.10
+    verified: true
+
+  - name: Skipper Ltd
+    ticker: SKIPPER.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 7062.90
+    verified: true
+
+  - name: HPL Electric & Power Ltd
+    ticker: HPL.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 4985.50
+    verified: true
+
+  - name: FCS Software Solutions Ltd
+    ticker: FCSSOFT.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 72.85
+    verified: true
+
+  - name: Urja Global Ltd
+    ticker: URJA.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 141.68
+    verified: true
+
+  - name: Inox India Ltd
+    ticker: INOXINDIA.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 9589.00
+    verified: true
+
+  - name: Borosil Renewables Ltd
+    ticker: BORORENEW.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 16152.75
+    verified: true
+
+  - name: Fiem Industries Ltd
+    ticker: FIEMIND.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 6860.10
+    verified: true
+
+  - name: Ganesha Ecosphere Ltd
+    ticker: GANECOS.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 6492.85
+    verified: true
+
+  - name: Manaksia Aluminium Company Ltd
+    ticker: null
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 237.48
+    verified: false
+
+  - name: Sansera Engineering Ltd
+    ticker: SANSERA.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 8837.40
+    verified: true
+
+  - name: Ircon International Ltd
+    ticker: IRCON.NS
+    market: IN
+    market_cap_tier: Small Cap
+    market_value: 4527.27
+    verified: true
+
+  - name: Apple Inc.
+    ticker: AAPL
+    market: US
+    market_cap_tier: Mega Cap
+    market_value: 154422.72
+    verified: true
+
+  - name: NVIDIA Corporation
+    ticker: NVDA
+    market: US
+    market_cap_tier: Mega Cap
+    market_value: 148209.42
+    verified: true
+
+  - name: Advanced Micro Devices, Inc.
+    ticker: AMD
+    market: US
+    market_cap_tier: Mega Cap
+    market_value: 23229.15
+    verified: true
+
+  - name: Sandisk Corporation
+    ticker: SNDK
+    market: US
+    market_cap_tier: Large Cap
+    market_value: 86280.69
+    verified: true
+
+  - name: Taiwan Semiconductor Manufacturing Company Ltd.
+    ticker: TSM
+    market: US
+    market_cap_tier: Mega Cap
+    market_value: 34942.90
+    verified: true
+
+  - name: Micron Technology, Inc.
+    ticker: MU
+    market: US
+    market_cap_tier: Large Cap
+    market_value: 20031.82
+    verified: true
+
+  - name: Alphabet Inc. Class C
+    ticker: GOOG
+    market: US
+    market_cap_tier: Mega Cap
+    market_value: 14734.25
+    verified: true
+
+  - name: Space Exploration Technologies Corp.
+    ticker: null
+    market: US
+    market_cap_tier: Mega Cap
+    market_value: 15731.29
+    verified: false  # SpaceX is privately held; no public fundamentals/ticker exist
+    unlisted: true

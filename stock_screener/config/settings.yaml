@@ -1,0 +1,79 @@
+# Scoring weights, position-sizing bands, and synthesis settings.
+# All weights are 0-1 and should sum to 1 within each group unless noted.
+
+scoring:
+  # Composite score = weighted sum of the four pillar scores (each 0-100).
+  pillar_weights:
+    valuation: 0.25
+    quality: 0.30
+    growth: 0.25
+    financial_health: 0.20
+
+  # Within "valuation" (lower is better, so these are inverted before scoring).
+  valuation_metrics:
+    pe_ratio: 0.30
+    price_to_fcf: 0.30
+    peg_ratio: 0.20
+    ev_to_ebitda: 0.20
+
+  # Within "quality" (higher is better).
+  quality_metrics:
+    roe: 0.35
+    roic: 0.35
+    operating_margin: 0.30
+
+  # Within "growth" (higher is better).
+  growth_metrics:
+    revenue_cagr_5y: 0.5
+    earnings_cagr_5y: 0.5
+
+  # Within "financial_health" (lower debt/equity and positive/rising FCF is better).
+  financial_health_metrics:
+    debt_to_equity: 0.5
+    fcf_trend: 0.5
+
+# Composite score (0-100) -> recommendation tier.
+recommendation_tiers:
+  - min_score: 80
+    label: Strong Buy
+    target_weight_pct: 6.0
+  - min_score: 65
+    label: Buy
+    target_weight_pct: 4.0
+  - min_score: 45
+    label: Hold
+    target_weight_pct: null   # null => keep current weight, don't resize
+  - min_score: 30
+    label: Trim
+    target_weight_pct: 1.0
+  - min_score: 0
+    label: Sell
+    target_weight_pct: 0.0
+
+sizing:
+  # Position sizing is computed relative to the total value of the equity
+  # universe (sum of market_value across all non-unlisted stocks.yaml
+  # entries), not your total net worth, so ETFs/gold/FDs don't distort it.
+  # A trade is only suggested if the rebalance is bigger than this, to avoid
+  # noise from tiny drifts.
+  min_rebalance_pct_of_position: 15.0
+  max_single_trade_pct_of_universe: 8.0  # safety cap per suggested trade
+
+synthesis:
+  model: claude-sonnet-4-5-20250929
+  max_tokens: 1024
+  # How many of the top/bottom ranked stocks get a full Claude-written
+  # thesis (bull/bear/risks). The rest just get the quantitative tier.
+  full_thesis_count_top: 10
+  full_thesis_count_bottom: 5
+
+macro:
+  # Optional. Set FRED_API_KEY env var to enable. Free key from
+  # https://fred.stlouisfed.org/docs/api/api_key.html
+  series:
+    - id: FEDFUNDS
+      label: US Fed Funds Rate
+    - id: CPIAUCSL
+      label: US CPI (inflation)
+    - id: UNRATE
+      label: US Unemployment Rate
